@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171227">
+  <meta name="description" content="Apni anime series aur movies ki list banayein aur manage karein.">
+  <title>Meri Anime List</title>
+  <style>
+    :root{color-scheme:dark;--bg:#171227;--panel:#211a38;--text:#f1ecff;--muted:#b7aecf;--line:#40365a;--accent:#ff5b86;--accent-text:#241321;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}main{width:min(720px,100%);margin:auto;padding:24px 16px 48px}h1{font-size:clamp(1.7rem,6vw,2.4rem);line-height:1.1;margin:0}h2{font-size:1.1rem;margin:0 0 12px}.header{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:20px}.count{color:var(--accent);font-size:2rem;font-weight:800;text-align:right}.count small{display:block;color:var(--muted);font-size:.8rem;font-weight:500}.tabs,.form,.tools{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}.tabs{border-bottom:1px solid var(--line);padding-bottom:10px}.tab[aria-pressed=true]{background:var(--accent);color:var(--accent-text)}input,button{font:inherit;border-radius:10px}input{min-width:0;padding:11px 12px;background:var(--panel);color:var(--text);border:1px solid var(--line)}.form input{flex:1}button{padding:10px 14px;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer}button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-text);font-weight:700}button:disabled{opacity:.5;cursor:not-allowed}button:hover:not(:disabled){filter:brightness(1.12)}:focus-visible{outline:3px solid #ffd166;outline-offset:2px}.search{width:100%;margin-bottom:14px}.list{list-style:none;padding:0;margin:0}.item{display:flex;align-items:center;gap:10px;padding:10px;margin:0 0 8px;background:var(--panel);border:1px solid var(--line);border-radius:12px}.number{flex:none;width:2.5rem;color:var(--accent);font-weight:800}.name{flex:1;min-width:0;overflow-wrap:anywhere}.actions{display:flex;gap:5px}.actions button{padding:7px 10px}.muted,.empty{color:var(--muted)}.empty{padding:12px 2px}.status{min-height:1.5em;color:var(--muted);margin:10px 0}.note{font-size:.9rem;color:var(--muted);margin-top:24px}@media(max-width:440px){.item{gap:6px;padding:8px}.actions button{padding:7px}.header{align-items:center}}
+  </style>
+</head>
+<body>
+<main>
+  <header class="header"><h1>Meri Anime List</h1><div class="count"><span id="count">0</span><small id="count-label">items</small></div></header>
+  <nav class="tabs" id="tabs" aria-label="List sections"></nav>
+  <form class="form" id="add-form"><label class="visually-hidden" for="anime-name">Anime ka naam</label><input id="anime-name" maxlength="120" placeholder="Anime ka naam likho" autocomplete="off" required><button class="primary" type="submit">Jodo</button></form>
+  <label class="visually-hidden" for="search">List mein khojo</label><input class="search" id="search" type="search" placeholder="Naam se khojo">
+  <div class="tools"><button type="button" id="add-section">+ Naya section</button><button type="button" id="delete-section">Yeh section hatao</button></div>
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+  <ol class="list" id="list"></ol><p class="empty" id="empty" hidden></p>
+  <p class="note">Aapki list isi browser/device mein save hoti hai. Browser ka data clear karne se list mit sakti hai.</p>
+</main>
+<style>.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}</style>
+<script>
+(function(){
+  'use strict';
+  var STORAGE_KEY='animeListV3';
+  var $=function(id){return document.getElementById(id)};
+  function cleanItems(items){
+    if(!Array.isArray(items))return [];
+    return items.map(function(item){return typeof item==='string'?item:(item&&typeof item.n==='string'?item.n:'')})
+      .map(function(name){return name.trim().slice(0,120)}).filter(Boolean)
+      .map(function(name){return {n:name}});
+  }
+  function fresh(){return {active:'series',tabs:[{id:'series',name:'Series',items:[]},{id:'movies',name:'Movies',items:[]}]};}
+  function load(){
+    try{
+      var raw=localStorage.getItem(STORAGE_KEY);
+      if(raw){var saved=JSON.parse(raw);if(saved&&Array.isArray(saved.tabs)&&saved.tabs.length){
+        var tabs=saved.tabs.map(function(tab,index){return {id:typeof tab.id==='string'&&tab.id?tab.id:'section-'+index,name:typeof tab.name==='string'&&tab.name.trim()?tab.name.trim().slice(0,30):'Section '+(index+1),items:cleanItems(tab.items)}});
+        var active=tabs.some(function(tab){return tab.id===saved.active})?saved.active:tabs[0].id;
+        return {active:active,tabs:tabs};
+      }}
+      var old=localStorage.getItem('animeListV2')||localStorage.getItem('animeListV1');
+      if(old){var oldItems=JSON.parse(old);if(Array.isArray(oldItems)){var migrated=fresh();migrated.tabs[0].items=cleanItems(oldItems);return migrated;}}
+    }catch(error){console.warn('Saved list could not be read; starting with an empty list.',error);}
+    return fresh();
+  }
+  var data=load();
+  function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));return true;}catch(error){say('Save nahi ho paya. Browser storage full ya disabled ho sakti hai.');return false;}}
+  function current(){return data.tabs.find(function(tab){return tab.id===data.active})||data.tabs[0];}
+  function say(message){$('status').textContent=message;}
+  function render(){
+    var tab=current(),query=$('search').value.trim().toLocaleLowerCase(),list=$('list'),shown=0;
+    list.replaceChildren();
+    tab.items.forEach(function(item,index){
+      if(query&&!item.n.toLocaleLowerCase().includes(query))return;
+      shown++;
+      var row=document.createElement('li');row.className='item';
+      var number=document.createElement('span');number.className='number';number.textContent=String(index+1);
+      var title=document.createElement('span');title.className='name';title.textContent=item.n;
+      var actions=document.createElement('div');actions.className='actions';
+      [[ '↑','Upar le jaayein',index===0,function(){move(index,index-1)} ],[ '↓','Neeche le jaayein',index===tab.items.length-1,function(){move(index,index+1)} ],[ 'Hatao','List se hatayein',false,function(){remove(index)} ]].forEach(function(action){
+        var button=document.createElement('button');button.type='button';button.textContent=action[0];button.setAttribute('aria-label',action[1]+': '+item.n);button.disabled=action[2];button.addEventListener('click',action[3]);actions.appendChild(button);
+      });
+      row.append(number,title,actions);list.appendChild(row);
+    });
+    $('count').textContent=String(tab.items.length);$('count-label').textContent=tab.name+' mein';
+    $('empty').hidden=shown>0;$('empty').textContent=query?'Koi matching naam nahi mila.':'Yeh section khaali hai. Upar naam likhkar anime jodein.';
+    $('delete-section').disabled=data.tabs.length<2;
+    var tabs=$('tabs');tabs.replaceChildren();
+    data.tabs.forEach(function(item){var button=document.createElement('button');button.type='button';button.className='tab';button.setAttribute('aria-pressed',String(item.id===data.active));button.textContent=item.name+' ('+item.items.length+')';button.addEventListener('click',function(){data.active=item.id;$('search').value='';say('');save();render();});tabs.appendChild(button);});
+  }
+  function move(from,to){var items=current().items;if(to<0||to>=items.length)return;var picked=items.splice(from,1)[0];items.splice(to,0,picked);save();render();say('“'+picked.n+'” ko number '+(to+1)+' par le gaye.');}
+  function remove(index){var tab=current(),removed=tab.items.splice(index,1)[0];save();render();say('“'+removed.n+'” list se hata diya.');}
+  $('add-form').addEventListener('submit',function(event){event.preventDefault();var input=$('anime-name'),name=input.value.trim(),items=current().items;if(!name){say('Pehle anime ka naam likhein.');return;}if(items.some(function(item){return item.n.toLocaleLowerCase()===name.toLocaleLowerCase()})){say('Yeh naam list mein pehle se hai.');return;}items.push({n:name.slice(0,120)});save();input.value='';$('search').value='';render();say('“'+name+'” list mein jod diya.');input.focus();});
+  $('search').addEventListener('input',render);
+  $('add-section').addEventListener('click',function(){var name=window.prompt('Naye section ka naam (jaise OVA ya Manga):');if(name===null)return;name=name.trim();if(!name){say('Section ka naam khaali nahi ho sakta.');return;}if(name.length>30){say('Section ka naam 30 akshar se chhota rakhein.');return;}if(data.tabs.some(function(tab){return tab.name.toLocaleLowerCase()===name.toLocaleLowerCase()})){say('Is naam ka section pehle se hai.');return;}var id='section-'+Date.now();data.tabs.push({id:id,name:name,items:[]});data.active=id;save();render();say('“'+name+'” section ban gaya.');});
+  $('delete-section').addEventListener('click',function(){if(data.tabs.length<2)return;var tab=current();if(!window.confirm('“'+tab.name+'” section aur uski '+tab.items.length+' entries hata dein?'))return;var index=data.tabs.indexOf(tab);data.tabs.splice(index,1);data.active=data.tabs[Math.min(index,data.tabs.length-1)].id;save();render();say('Section hata diya.');});
+  render();
+})();
+</script>
+</body>
+</html>
