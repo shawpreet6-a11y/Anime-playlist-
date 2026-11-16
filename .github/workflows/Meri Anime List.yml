@@ -2,9 +2,9 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -12,48 +12,46 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Repository Code Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Node.js Environment
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      # 3. Setup Java JDK 17 (Android Build ke liye)
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # 4. Web Assets folder setup & Capacitor Init
       - name: Setup Capacitor Project
         run: |
           mkdir -p www
-          # Agar aapki main HTML file ka naam different hai to use index.html bana dein
           if [ -f "Meri Anime List (3).html" ]; then
             cp "Meri Anime List (3).html" www/index.html
           elif [ -f "index.html" ]; then
             cp index.html www/index.html
           fi
-          
-          npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android
-          npx cap init "Meri Anime List" "com.preet.animelist" --web-dir www
-          npx cap add android
-          npx cap copy android
 
-      # 5. Build Debug APK using Gradle
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+
+          if [ ! -d "android" ]; then
+            npx cap init "Meri Anime List" "com.preet.animelist" --web-dir www
+            npx cap add android
+          else
+            echo "Android project already exists, skipping cap add android"
+          fi
+
+          npx cap sync android
+
       - name: Build Gradle APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      # 6. Upload Generated APK as Artifact
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
