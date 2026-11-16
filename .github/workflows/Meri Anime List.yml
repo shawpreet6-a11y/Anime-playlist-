@@ -15,44 +15,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-
-      - name: Setup Java JDK
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '17'
+          distribution: zulu
+          java-version: "17"
 
-      - name: Setup Capacitor Project
-        run: |
-          mkdir -p www
-          if [ -f "Meri Anime List (3).html" ]; then
-            cp "Meri Anime List (3).html" www/index.html
-          elif [ -f "index.html" ]; then
-            cp index.html www/index.html
-          fi
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
 
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+      - name: Build debug APK
+        run: gradle -p android assembleDebug
 
-          if [ ! -d "android" ]; then
-            npx cap init "Meri Anime List" "com.preet.animelist" --web-dir www
-            npx cap add android
-          else
-            echo "Android project already exists, skipping cap add android"
-          fi
-
-          npx cap sync android
-
-      - name: Build Gradle APK
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
-
-      - name: Upload APK Artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Anime-Playlist-APK
